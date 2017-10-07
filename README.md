@@ -11,4 +11,4 @@ reduced to half.
 
 [1] TCP Congestion Control with a Misbehaving Receiver ( https://cseweb.ucsd.edu/~savage/papers/CCR99.pdf )
 
-[2]TCP models in ns-3: https://www.nsnam.org/docs/models/html/tcp.html
+[2] TCP models in ns-3: https://www.nsnam.org/docs/models/html/tcp.html
