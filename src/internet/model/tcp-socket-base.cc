@@ -135,6 +135,14 @@ TcpSocketBase::GetTypeId (void)
                    BooleanValue (true),
                    MakeBooleanAccessor (&TcpSocketBase::m_limitedTx),
                    MakeBooleanChecker ())
+    .AddAttribute ("DupAckSpoof", "Enable or disable DupAck Spoofing",
+                   BooleanValue (true),
+                   MakeBooleanAccessor (&TcpSocketBase::m_dupAckSpoof), 
+                   MakeBooleanChecker ())
+    .AddAttribute ("dcount", "Number of dupAcks to be sent",
+                   UintegerValue (10),
+                   MakeUintegerAccessor (&TcpSocketBase::m_dcount),
+                   MakeUintegerChecker<uint32_t> ())
     .AddTraceSource ("RTO",
                      "Retransmission timeout",
                      MakeTraceSourceAccessor (&TcpSocketBase::m_rto),
@@ -331,6 +339,8 @@ TcpSocketBase::TcpSocketBase (void)
     m_recover (0),
     m_retxThresh (3),
     m_limitedTx (false),
+    m_dupAckSpoof (false),
+    m_dcount(10),
     m_congestionControl (0),
     m_isFirstPartialAck (true)
 {
@@ -407,6 +417,8 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
     m_recover (sock.m_recover),
     m_retxThresh (sock.m_retxThresh),
     m_limitedTx (sock.m_limitedTx),
+    m_dupAckSpoof (sock.m_dupAckSpoof),
+    m_dcount (sock.m_dcount),
     m_isFirstPartialAck (sock.m_isFirstPartialAck),
     m_txTrace (sock.m_txTrace),
     m_rxTrace (sock.m_rxTrace)
@@ -514,6 +526,7 @@ TcpSocketBase::GetErrno (void) const
   return m_errno;
 }
 
+unsigned int counter = 0;
 /* Inherit from Socket class: Returns socket type, NS3_SOCK_STREAM */
 enum Socket::SocketType
 TcpSocketBase::GetSocketType (void) const
@@ -1269,7 +1282,8 @@ TcpSocketBase::DoForwardUp (Ptr<Packet> packet, const Address &fromAddress,
 
       // Initialize cWnd and ssThresh
       m_tcb->m_cWnd = GetInitialCwnd () * GetSegSize ();
-      m_tcb->m_ssThresh = GetInitialSSThresh ();
+      //m_tcb->m_ssThresh = GetInitialSSThres();
+      m_tcb->m_ssThresh = 100 * GetSegSize ();
 
       if (tcpHeader.GetFlags () & TcpHeader::ACK)
         {
@@ -1884,10 +1898,10 @@ TcpSocketBase::ProcessAck (const SequenceNumber32 &ackNumber, bool scoreboardUpd
               NewAck (ackNumber, true);
               // Follow NewReno procedures to exit FR if SACK is disabled
               // (RFC2582 sec.3 bullet #5 paragraph 2, option 1)
-              m_tcb->m_cWnd = std::min (m_tcb->m_ssThresh.Get (),
-                                    BytesInFlight () + m_tcb->m_segmentSize);
+              //m_tcb->m_cWnd = std::min (m_tcb->m_ssThresh.Get (),
+			  //					  BytesInFlight () + m_tcb->m_segmentSize);
               NS_LOG_DEBUG ("Leaving Fast Recovery; BytesInFlight() = " <<
-                            BytesInFlight () << "; cWnd = " << m_tcb->m_cWnd);
+			  				BytesInFlight () << "; cWnd = " << m_tcb->m_cWnd);
             }
           else
             {
@@ -3091,11 +3105,24 @@ TcpSocketBase::ReceivedData (Ptr<Packet> p, const TcpHeader& tcpHeader)
   else
     { // In-sequence packet: ACK if delayed ack count allows
       if (++m_delAckCount >= m_delAckMaxCount)
-        {
+	  {
           m_delAckEvent.Cancel ();
           m_delAckCount = 0;
-          SendEmptyPacket (TcpHeader::ACK);
-        }
+          //sending stream of dupAcks for dupAck spoofing
+          counter++;
+          if (counter == 5 && m_dupAckSpoof)
+		    {
+              for (; counter < 5 + m_dcount; counter++)
+			    {
+				  SendEmptyPacket (TcpHeader::ACK);
+                }
+            }
+          else
+		    {
+			  SendEmptyPacket (TcpHeader::ACK);
+              counter++;
+            }
+       }
       else if (m_delAckEvent.IsExpired ())
         {
           m_delAckEvent = Simulator::Schedule (m_delAckTimeout,

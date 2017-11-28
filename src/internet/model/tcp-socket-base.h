@@ -1144,6 +1144,8 @@ protected:
   SequenceNumber32       m_recover;      //!< Previous highest Tx seqnum for fast recovery
   uint32_t               m_retxThresh;   //!< Fast Retransmit threshold
   bool                   m_limitedTx;    //!< perform limited transmit
+  bool                   m_dupAckSpoof;  //!< Enable DupAck Spoofing
+  uint32_t               m_dcount;       //!< Specify number of DupAcks to be sent
 
   // Transmission Control Block
   Ptr<TcpSocketState>    m_tcb;               //!< Congestion control informations
