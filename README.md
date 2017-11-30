@@ -40,7 +40,9 @@ and cd into ns-3-dev for further work.  Consult the bake documentation on how to
    and the number of dupAcks to be sent
    
    	`./waf --run "scratch/dupAckSpoof --dupAckSpoof=true --dcount=100"` 
+	
 				OR
+				
    	`./waf --run "scratch/dupAckSpoof --dupAckSpoof=false"`
    
    NOTE: default value of dupAckSpoof=false , dcount=10 
